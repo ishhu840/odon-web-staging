@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, UploadFile, File, Form
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
@@ -481,6 +481,33 @@ async def get_dashboard_stats():
         "total_projects": total_projects,
         "published_projects": published_projects,
         "total_media": total_media
+    }
+
+@api_router.get("/contact_info")
+async def get_contact_info():
+    # In a real application, this would fetch data from a database or configuration
+    return {
+        "contact_email": "valerie.odon@strath.ac.uk",
+        "contact_phone": "+44 (0)141 548 2000",
+        "address": {
+            "street": "161 Cathedral Street",
+            "city": "Glasgow",
+            "state_province": "Scotland",
+            "postal_code": "G4 0RE",
+            "country": "UK"
+        },
+        "institution": "University of Strathclyde",
+        "department": "Strathclyde Institute of Pharmacy and Biomedical Sciences",
+        "social_media": {
+            "twitter": "#",
+            "linkedin": "#",
+            "facebook": "#"
+        },
+        "office_hours": [
+            "Monday - Friday: 9:00 AM - 5:00 PM",
+            "Saturday: 10:00 AM - 2:00 PM",
+            "Sunday: Closed"
+        ]
     }
 
 @api_router.post("/contact")

@@ -598,7 +598,7 @@ const GenericPage = ({ page, isAdmin, onEditPage }) => {
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-8">
                         {content.map((member, index) => (
                           <div key={index} className="bg-white rounded-xl shadow-md overflow-hidden transform transition duration-300 hover:scale-105 hover:shadow-xl">
-                            <img className="w-full h-48 object-contain" src={member.image} alt={member.name} />
+                            <img className="w-48 h-48 rounded-full object-cover mx-auto mt-4" src={member.image} alt={member.name} />
                             <div className="p-6">
                               <h4 className="text-xl font-semibold text-slate-900 mb-1">{member.name}</h4>
                               <p className="text-blue-600 text-md mb-3">{member.role}</p>
