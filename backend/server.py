@@ -68,6 +68,7 @@ class PageContent(BaseModel):
     meta_description: Optional[str] = None
     meta_keywords: Optional[str] = None
     is_published: bool = True
+    order: Optional[int] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -79,6 +80,7 @@ class PageContentCreate(BaseModel):
     meta_description: Optional[str] = None
     meta_keywords: Optional[str] = None
     is_published: bool = True
+    order: Optional[int] = None
 
 class PageContentUpdate(BaseModel):
     title: Optional[str] = None
@@ -87,6 +89,7 @@ class PageContentUpdate(BaseModel):
     meta_description: Optional[str] = None
     meta_keywords: Optional[str] = None
     is_published: Optional[bool] = None
+    order: Optional[int] = None
 
 class Project(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -253,12 +256,12 @@ async def read_users_me(current_user: User = Depends(get_current_user)):
 # Page Content Routes
 @api_router.get("/pages", response_model=List[PageContent])
 async def get_pages():
-    pages = await db.pages.find().to_list(1000)
+    pages = await db.pages.find().sort("order", 1).to_list(1000)
     return [PageContent(**page) for page in pages]
 
 @api_router.get("/pages/published", response_model=List[PageContent])
 async def get_published_pages():
-    pages = await db.pages.find({"is_published": True}).to_list(1000)
+    pages = await db.pages.find({"is_published": True}).sort("order", 1).to_list(1000)
     return [PageContent(**page) for page in pages]
 
 @api_router.get("/pages/{page_name}", response_model=PageContent)
@@ -557,7 +560,8 @@ async def init_sample_data():
                 "education_description": "Training the next generation of researchers and healthcare professionals in immunology and virology."
             },
             meta_description="Dr. Valerie Odon's Virology Research Lab at the University of Strathclyde - Advancing immunology and virus research",
-            meta_keywords="virology, immunology, research, University of Strathclyde, Dr. Valerie Odon"
+            meta_keywords="virology, immunology, research, University of Strathclyde, Dr. Valerie Odon",
+            order=1
         ),
         PageContent(
             page_name="projects",
@@ -565,7 +569,31 @@ async def init_sample_data():
             subtitle="Exploring the frontiers of virology and immunology through innovative research initiatives",
             content={
                 "collaborations_text": "We actively collaborate with leading research institutions, pharmaceutical companies, and healthcare organizations worldwide to advance our research goals and translate discoveries into clinical applications."
-            }
+            },
+            order=2
+        ),
+        PageContent(
+            page_name="team",
+            title="Our Team",
+            subtitle="Meet the Researchers",
+            content={
+                "team_intro": "Our team comprises dedicated scientists, researchers, and students committed to advancing neuroscience."
+            },
+            is_published=True,
+            order=3
+        ),
+        PageContent(
+            page_name="contact",
+            title="Contact Us",
+            subtitle="Get in touch with the Odon Lab team",
+            content={
+                "contact_email": "valerie.odon@strath.ac.uk",
+                "contact_phone": "+44 (0)141 548 2000",
+                "address": "161 Cathedral Street, Glasgow G4 0RE, Scotland, UK",
+                "institution": "University of Strathclyde",
+                "department": "Strathclyde Institute of Pharmacy and Biomedical Sciences"
+            },
+            order=4
         ),
         PageContent(
             page_name="odonai",
@@ -586,19 +614,8 @@ async def init_sample_data():
                     "Clinical trial data modeling",
                     "Epidemiological pattern recognition"
                 ]
-            }
-        ),
-        PageContent(
-            page_name="contact",
-            title="Contact Us",
-            subtitle="Get in touch with the Odon Lab team",
-            content={
-                "contact_email": "valerie.odon@strath.ac.uk",
-                "contact_phone": "+44 (0)141 548 2000",
-                "address": "161 Cathedral Street, Glasgow G4 0RE, Scotland, UK",
-                "institution": "University of Strathclyde",
-                "department": "Strathclyde Institute of Pharmacy and Biomedical Sciences"
-            }
+            },
+            order=5
         )
     ]
     

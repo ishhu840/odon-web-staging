@@ -28,7 +28,9 @@ const Navigation = ({ pages, isAdmin, user, onLogin, onLogout, onOpenAdminPanel 
     }
   };
 
-  const publishedPages = Object.values(pages).filter(page => page.is_published);
+  const publishedPages = Object.values(pages)
+    .filter(page => page.is_published)
+    .sort((a, b) => (a.order || 9999) - (b.order || 9999));
 
   return (
     <>
@@ -1293,7 +1295,9 @@ const App = () => {
       pagesResponse.data.forEach(page => {
         pagesData[page.page_name] = page;
       });
+
       setPages(pagesData);
+
       setProjects(projectsResponse.data);
       
       setLoading(false);
@@ -1452,7 +1456,7 @@ const App = () => {
             } 
           />
           {Object.entries(pages).map(([pageName, page]) => {
-            if (pageName === 'home' || pageName === 'projects') return null;
+              if (pageName === 'home' || pageName === 'projects' || pageName === 'contact') return null;
             return (
               <Route 
                 key={pageName}

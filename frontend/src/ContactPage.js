@@ -25,16 +25,22 @@ const ContactPage = () => {
   useEffect(() => {
     // Load Google Maps script
     const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&callback=initMap`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBiFN_xbGPvHlkt3fVJd-lgI0eIJ-zAgD8&callback=initMap`;
     script.async = true;
     document.head.appendChild(script);
 
     window.initMap = () => {
       const mapOptions = {
-        center: { lat: 40.7128, lng: -74.0060 }, // Coordinates for New York City
+        center: { lat: 55.862885, lng: -4.241636 }, // Coordinates for 161 Cathedral Street, Glasgow G4 0RE, Scotland, UK
         zoom: 12,
       };
-      new window.google.maps.Map(document.getElementById("map"), mapOptions);
+      const map = new window.google.maps.Map(document.getElementById("map"), mapOptions);
+
+      new window.google.maps.Marker({
+        position: mapOptions.center,
+        map: map,
+        title: '161 Cathedral Street, Glasgow G4 0RE, Scotland, UK'
+      });
     };
   }, []);
 
@@ -64,7 +70,7 @@ const ContactPage = () => {
       <div className="max-w-7xl w-full grid grid-cols-1 md:grid-cols-2 gap-10">
 
       <div className="md:col-span-1 bg-white bg-opacity-60 backdrop-filter backdrop-blur-xl p-10 rounded-xl shadow-3xl border border-white border-opacity-30 transform transition-transform duration-300 hover:shadow-4xl hover:scale-[1.005] hover:-translate-y-1 relative z-10">
-        <h1 className="text-5xl font-extrabold text-center md:text-left text-purple-900 mb-6 animate-fade-in-down">
+        <h1 className="text-5xl font-extrabold text-center md:text-left text-blue-500 mb-6 animate-fade-in-down">
           Contact Us
         </h1>
 
@@ -128,7 +134,7 @@ const ContactPage = () => {
 
           <button
             type="submit"
-            className="bg-purple-700 hover:bg-purple-800 text-white font-bold py-3 px-6 rounded-lg focus:outline-none focus:shadow-outline transform transition-all duration-300 ease-in-out hover:scale-105 shadow-lg"
+            className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg focus:outline-none focus:shadow-outline transform transition-all duration-300 ease-in-out hover:scale-105 shadow-lg"
           >
             Send Message
           </button>
@@ -141,20 +147,20 @@ const ContactPage = () => {
 
         <div className="mt-8 space-y-6">
           <div className="flex items-center space-x-4">
-            <FontAwesomeIcon icon={faLocationDot} className="text-purple-700 text-2xl" />
-            <p className="text-gray-800 text-base">Address: 198 West 21th Street, Suite 721 New York NY 10016</p>
+            <FontAwesomeIcon icon={faLocationDot} className="text-blue-500 text-2xl" />
+            <p className="text-gray-800 text-base">Address: 161 Cathedral Street, Glasgow G4 0RE, Scotland, UK</p>
           </div>
           <div className="flex items-center space-x-4">
-            <FontAwesomeIcon icon={faPhoneVolume} className="text-purple-700 text-2xl" />
-            <p className="text-gray-800 text-base">Phone: + 1235 2355 98</p>
+            <FontAwesomeIcon icon={faPhoneVolume} className="text-blue-500 text-2xl" />
+            <p className="text-gray-800 text-base">Phone: +44 (0)141 548 2000</p>
           </div>
           <div className="flex items-center space-x-4">
-            <FontAwesomeIcon icon={faPaperPlane} className="text-purple-700 text-2xl" />
-            <p className="text-gray-800 text-base">Email: info@yoursite.com</p>
+            <FontAwesomeIcon icon={faPaperPlane} className="text-blue-500 text-2xl" />
+            <p className="text-gray-800 text-base">Email: valerie.odon@strath.ac.uk</p>
           </div>
           <div className="flex items-center space-x-4">
-            <FontAwesomeIcon icon={faPaperPlane} className="text-purple-700 text-2xl" /> {/* Using paper plane for website as well, or find a suitable icon */}
-            <p className="text-gray-800 text-base">Website yoursite.com</p>
+            <FontAwesomeIcon icon={faPaperPlane} className="text-blue-500 text-2xl" />
+            <p className="text-gray-800 text-base">Department: Strathclyde Institute of Pharmacy and Biomedical Sciences</p>
           </div>
         </div>
       </div>
