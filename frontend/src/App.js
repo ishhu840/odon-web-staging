@@ -3,9 +3,12 @@ import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useLocation 
 import axios from 'axios';
 import './App.css';
 import ContactPage from './ContactPage';
+import TeamPage from './TeamPage';
+import EditTeamMemberModal from './EditTeamMemberModal';
+import PageLayout from './PageLayout';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+export const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+export const API = `${BACKEND_URL}/api`;
 
 // Navigation Component
 const Navigation = ({ pages, isAdmin, user, onLogin, onLogout, onOpenAdminPanel }) => {
@@ -92,6 +95,7 @@ const Navigation = ({ pages, isAdmin, user, onLogin, onLogout, onOpenAdminPanel 
                   {page.title}
                 </Link>
               ))}
+
               
               {/* Admin Controls */}
               {isAdmin ? (
@@ -243,54 +247,7 @@ const Navigation = ({ pages, isAdmin, user, onLogin, onLogout, onOpenAdminPanel 
   );
 };
 
-// Page Layout Component
-const PageLayout = ({ children, className = "" }) => (
-  <div className={`min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 pt-20 ${className}`}>
-    {children}
-    <footer className="bg-slate-800 py-12 border-t border-blue-300/30">
-      <div className="container mx-auto px-6">
-        <div className="text-center">
-          <div className="flex items-center justify-center space-x-3 mb-4">
-            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-              {/* Molecular Structure Icon */}
-              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <g>
-                  {/* Central molecule */}
-                  <circle cx="12" cy="12" r="2" fill="currentColor"/>
-                  {/* Surrounding molecules */}
-                  <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
-                  <circle cx="16" cy="8" r="1.5" fill="currentColor"/>
-                  <circle cx="8" cy="16" r="1.5" fill="currentColor"/>
-                  <circle cx="16" cy="16" r="1.5" fill="currentColor"/>
-                  <circle cx="4" cy="12" r="1.5" fill="currentColor"/>
-                  <circle cx="20" cy="12" r="1.5" fill="currentColor"/>
-                  <circle cx="12" cy="4" r="1.5" fill="currentColor"/>
-                  <circle cx="12" cy="20" r="1.5" fill="currentColor"/>
-                  {/* Bonds */}
-                  <line x1="12" y1="12" x2="8" y2="8" stroke="currentColor" strokeWidth="1"/>
-                  <line x1="12" y1="12" x2="16" y2="8" stroke="currentColor" strokeWidth="1"/>
-                  <line x1="12" y1="12" x2="8" y2="16" stroke="currentColor" strokeWidth="1"/>
-                  <line x1="12" y1="12" x2="16" y2="16" stroke="currentColor" strokeWidth="1"/>
-                  <line x1="12" y1="12" x2="4" y2="12" stroke="currentColor" strokeWidth="1"/>
-                  <line x1="12" y1="12" x2="20" y2="12" stroke="currentColor" strokeWidth="1"/>
-                  <line x1="12" y1="12" x2="12" y2="4" stroke="currentColor" strokeWidth="1"/>
-                  <line x1="12" y1="12" x2="12" y2="20" stroke="currentColor" strokeWidth="1"/>
-                </g>
-              </svg>
-            </div>
-            <span className="text-xl font-bold text-white">Odon Lab</span>
-          </div>
-          <p className="text-blue-100 mb-2">
-            © 2025 Odon Lab - University of Strathclyde. All rights reserved.
-          </p>
-          <p className="text-blue-300">
-            Advancing virology and immunology research for a healthier future.
-          </p>
-        </div>
-      </div>
-    </footer>
-  </div>
-);
+
 
 // Home Page Component
 const HomePage = ({ page, projects, isAdmin, onEditPage, onEditProject, onDeleteProject, onAddProject }) => {
@@ -646,8 +603,11 @@ const GenericPage = ({ page, isAdmin, onEditPage }) => {
               
               return null;
             })}
+              
 
-            {/* Default content if no content exists */}
+
+              {/* Default content if no content exists */}
+              {/* Default content if no content exists */}
             {(!page.content || Object.keys(page.content).length === 0) && (
               <div className="bg-white/80 backdrop-blur-lg rounded-2xl p-8 border border-blue-300/30 text-center shadow-lg">
                 <div className="text-6xl mb-4">📄</div>
@@ -665,6 +625,36 @@ const GenericPage = ({ page, isAdmin, onEditPage }) => {
 // Admin Panel Component
 const AdminPanel = ({ pages, projects, isOpen, onClose, onEditPage, onEditProject, onAddProject, onDeleteProject, onCreatePage, onDeletePage, onTogglePageStatus, token }) => {
   const [activeTab, setActiveTab] = useState('pages');
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [loadingTeamMembers, setLoadingTeamMembers] = useState(true);
+  const [teamMembersError, setTeamMembersError] = useState(null);
+  const [isTeamMemberModalOpen, setIsTeamMemberModalOpen] = useState(false);
+  const [currentTeamMember, setCurrentTeamMember] = useState(null);
+
+  useEffect(() => {
+    if (isOpen && activeTab === 'team') {
+      fetchTeamMembers();
+    }
+  }, [isOpen, activeTab]);
+
+  const fetchTeamMembers = async () => {
+    setLoadingTeamMembers(true);
+    setTeamMembersError(null);
+    try {
+      const response = await axios.get(`${API}/team_members`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setTeamMembers(response.data);
+    } catch (error) {
+      console.error('Error fetching team members:', error);
+      setTeamMembersError(error);
+    } finally {
+      setLoadingTeamMembers(false);
+    }
+  };
+
   const [newPageForm, setNewPageForm] = useState({
     page_name: '',
     title: '',
@@ -681,6 +671,48 @@ const AdminPanel = ({ pages, projects, isOpen, onClose, onEditPage, onEditProjec
       content: {},
       is_published: true
     });
+  };
+
+  const handleAddTeamMember = () => {
+    setCurrentTeamMember(null);
+    setIsTeamMemberModalOpen(true);
+  };
+
+  const handleEditTeamMember = (member) => {
+    setCurrentTeamMember(member);
+    setIsTeamMemberModalOpen(true);
+  };
+
+  const handleDeleteTeamMember = async (memberId) => {
+    if (window.confirm('Are you sure you want to delete this team member?')) {
+      try {
+        await axios.delete(`${API}/team_members/${memberId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        alert('Team member deleted successfully!');
+        fetchTeamMembers();
+      } catch (error) {
+        console.error('Error deleting team member:', error);
+        alert('Failed to delete team member: ' + (error.response?.data?.detail || error.message));
+      }
+    }
+  };
+
+  const handleToggleTeamMemberStatus = async (memberId) => {
+    try {
+      await axios.patch(`${API}/team_members/${memberId}/toggle-status`, {}, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      alert('Team member status updated successfully!');
+      fetchTeamMembers();
+    } catch (error) {
+      console.error('Error toggling team member status:', error);
+      alert('Failed to toggle team member status: ' + (error.response?.data?.detail || error.message));
+    }
   };
 
   const handleCreatePage = async (e) => {
@@ -731,6 +763,14 @@ const AdminPanel = ({ pages, projects, isOpen, onClose, onEditPage, onEditProjec
           </button>
         </div>
 
+        <EditTeamMemberModal
+          isOpen={isTeamMemberModalOpen}
+          onClose={() => setIsTeamMemberModalOpen(false)}
+          onSave={fetchTeamMembers}
+          member={currentTeamMember}
+          token={token}
+        />
+
         {/* Tabs */}
         <div className="flex border-b border-blue-500/20">
           <button
@@ -754,6 +794,16 @@ const AdminPanel = ({ pages, projects, isOpen, onClose, onEditPage, onEditProjec
             Projects Management
           </button>
           <button
+            onClick={() => setActiveTab('team')}
+            className={`px-6 py-3 font-medium transition-colors ${
+              activeTab === 'team'
+                ? 'bg-blue-500 text-white'
+                : 'text-blue-100 hover:text-white hover:bg-blue-500/20'
+            }`}
+          >
+            Team Members
+          </button>
+          <button
             onClick={() => setActiveTab('create')}
             className={`px-6 py-3 font-medium transition-colors ${
               activeTab === 'create'
@@ -766,6 +816,60 @@ const AdminPanel = ({ pages, projects, isOpen, onClose, onEditPage, onEditProjec
         </div>
 
         <div className="overflow-y-auto max-h-[calc(90vh-140px)]">
+          {/* Team Members Management Tab */}
+          {activeTab === 'team' && (
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-semibold text-white">Manage Team Members</h3>
+                <button
+                  onClick={handleAddTeamMember}
+                  className="px-4 py-2 bg-emerald-500 text-white rounded-lg font-medium hover:bg-emerald-600 transition-colors"
+                >
+                  Add New Team Member
+                </button>
+              </div>
+              {loadingTeamMembers ? (
+                <div className="text-white">Loading team members...</div>
+              ) : teamMembersError ? (
+                <div className="text-red-500">Error loading team members: {teamMembersError.message}</div>
+              ) : (
+                <div className="space-y-4">
+                  {teamMembers.map((member) => (
+                    <div key={member.id} className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-blue-500/20 flex items-center justify-between">
+                      <div className="flex-1">
+                        <h4 className="text-lg font-semibold text-white">{member.name}</h4>
+                        <p className="text-blue-100 text-sm">{member.role}</p>
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${member.is_published ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+                          {member.is_published ? 'Published' : 'Draft'}
+                        </span>
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleEditTeamMember(member)}
+                          className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-sm"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteTeamMember(member.id)}
+                          className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors text-sm"
+                        >
+                          Delete
+                        </button>
+                        <button
+                          onClick={() => handleToggleTeamMemberStatus(member.id)}
+                          className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition-colors text-sm"
+                        >
+                          Toggle Status
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Pages Management Tab */}
           {activeTab === 'pages' && (
             <div className="p-6">
@@ -1441,6 +1545,7 @@ const App = () => {
               />
             } 
           />
+          <Route path="/team" element={<TeamPage />} />
           <Route 
             path="/projects" 
             element={
@@ -1472,6 +1577,7 @@ const App = () => {
             );
           })}
           <Route path="/contact" element={<ContactPage />} />
+  
           <Route 
             path="*" 
             element={

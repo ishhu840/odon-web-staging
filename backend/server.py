@@ -151,6 +151,36 @@ class MediaFile(BaseModel):
     file_data: str  # Base64 encoded file data
     uploaded_at: datetime = Field(default_factory=datetime.utcnow)
 
+class TeamMember(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    role: str
+    image: Optional[str] = None
+    interests: List[str] = Field(default_factory=list)
+    bio: Optional[str] = None
+    order: int = 0
+    is_published: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class TeamMemberCreate(BaseModel):
+    name: str
+    role: str
+    image: Optional[str] = None
+    interests: List[str] = Field(default_factory=list)
+    bio: Optional[str] = None
+    order: int = 0
+    is_published: bool = True
+
+class TeamMemberUpdate(BaseModel):
+    name: Optional[str] = None
+    role: Optional[str] = None
+    image: Optional[str] = None
+    interests: Optional[List[str]] = None
+    bio: Optional[str] = None
+    order: Optional[int] = None
+    is_published: Optional[bool] = None
+
 class ContactForm(BaseModel):
     name: str
     email: str
@@ -328,6 +358,13 @@ async def toggle_page_status(page_name: str):
     updated_page = await db.pages.find_one({"page_name": page_name})
     return PageContent(**updated_page)
 
+@api_router.get("/pages/team/content", response_model=Dict[str, Any])
+async def get_team_page_content():
+    team_page = await db.pages.find_one({"page_name": "team"})
+    if not team_page:
+        raise HTTPException(status_code=404, detail="Team page not found")
+    return team_page.get("content", {})
+
 # Project Routes
 @api_router.get("/projects", response_model=List[Project])
 async def get_projects():
@@ -387,6 +424,261 @@ async def toggle_project_status(project_id: str):
     
     updated_project = await db.projects.find_one({"id": project_id})
     return Project(**updated_project)
+
+# Team Member Routes
+@api_router.get("/team_members", response_model=List[TeamMember])
+async def get_team_members():
+    members = await db.team_members.find().sort("order", 1).to_list(1000)
+    return [TeamMember(**member) for member in members]
+
+@api_router.get("/team_members/published", response_model=List[TeamMember])
+async def get_published_team_members():
+    members = await db.team_members.find({"is_published": True}).sort("order", 1).to_list(1000)
+    return [TeamMember(**member) for member in members]
+
+@api_router.get("/team_members/{member_id}", response_model=TeamMember)
+async def get_team_member(member_id: str):
+    member = await db.team_members.find_one({"id": member_id})
+    if not member:
+        raise HTTPException(status_code=404, detail="Team member not found")
+    return TeamMember(**member)
+
+@api_router.post("/team_members", response_model=TeamMember)
+async def create_team_member(member: TeamMemberCreate):
+    member_dict = member.dict()
+    member_obj = TeamMember(**member_dict)
+    await db.team_members.insert_one(member_obj.dict())
+    return member_obj
+
+@api_router.put("/team_members/{member_id}", response_model=TeamMember)
+async def update_team_member(member_id: str, member_update: TeamMemberUpdate):
+    member = await db.team_members.find_one({"id": member_id})
+    if not member:
+        raise HTTPException(status_code=404, detail="Team member not found")
+    
+    update_data = member_update.dict(exclude_unset=True)
+    update_data["updated_at"] = datetime.utcnow()
+    
+    await db.team_members.update_one({"id": member_id}, {"$set": update_data})
+    updated_member = await db.team_members.find_one({"id": member_id})
+    return TeamMember(**updated_member)
+
+@api_router.delete("/team_members/{member_id}")
+async def delete_team_member(member_id: str):
+    result = await db.team_members.delete_one({"id": member_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Team member not found")
+    return {"message": "Team member deleted successfully"}
+
+@api_router.patch("/team_members/{member_id}/toggle-status")
+async def toggle_team_member_status(member_id: str):
+    member = await db.team_members.find_one({"id": member_id})
+    if not member:
+        raise HTTPException(status_code=404, detail="Team member not found")
+    
+    new_status = not member["is_published"]
+    await db.team_members.update_one(
+        {"id": member_id}, 
+        {"$set": {"is_published": new_status, "updated_at": datetime.utcnow()}}
+    )
+    
+    updated_member = await db.team_members.find_one({"id": member_id})
+    return TeamMember(**updated_member)
+
+# Contact Form Submission
+@api_router.post("/contact")
+async def submit_contact_form(contact_form: ContactForm):
+    try:
+        # Email configuration
+        smtp_server = os.environ.get("SMTP_SERVER")
+        smtp_port = int(os.environ.get("SMTP_PORT", 587))
+        smtp_username = os.environ.get("SMTP_USERNAME")
+        smtp_password = os.environ.get("SMTP_PASSWORD")
+        sender_email = os.environ.get("SENDER_EMAIL")
+        receiver_email = os.environ.get("RECEIVER_EMAIL")
+
+        if not all([smtp_server, smtp_username, smtp_password, sender_email, receiver_email]):
+            raise ValueError("SMTP environment variables are not fully configured.")
+
+        message = f"""\nSubject: New Contact Form Submission: {contact_form.subject}\n\nName: {contact_form.name}\nEmail: {contact_form.email}\nMessage:\n{contact_form.message}
+"""
+
+        context = ssl.create_default_context()
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls(context=context)
+            server.login(smtp_username, smtp_password)
+            server.sendmail(sender_email, receiver_email, message.encode('utf-8'))
+        
+        return {"message": "Contact form submitted successfully!"}
+    except Exception as e:
+        logging.error(f"Error sending email: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to send message: {e}")
+
+# Main app setup
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # Adjust as needed for your frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
+
+app.include_router(api_router)
+
+@app.on_event("startup")
+async def startup_event():
+    await init_default_admin()
+
+    # Drop the collection to ensure fresh data on each startup
+    await db.team_members.drop()
+    logging.info("Dropped team_members collection.")
+
+    # Add sample team members if they don't exist
+    sample_team_members = [
+        TeamMember(
+            name='John Doe',
+            role='Lead Developer',
+            image='https://via.placeholder.com/150/0000FF/FFFFFF?text=John+Doe',
+            interests=['Web Development', 'Scalable Systems', 'New Technologies'],
+            bio='Passionate about building scalable web applications and exploring new technologies.',
+            order=1,
+            is_published=True
+        ),
+        TeamMember(
+            name='Jane Smith',
+            role='UI/UX Designer',
+            image='https://via.placeholder.com/150/FF0000/FFFFFF?text=Jane+Smith',
+            interests=['UI/UX Design', 'Photography', 'User Experience'],
+            bio='Loves creating intuitive and beautiful user interfaces, and enjoys photography in her free time.',
+            order=2,
+            is_published=True
+        ),
+        TeamMember(
+            name='Peter Jones',
+            role='Project Manager',
+            image='https://via.placeholder.com/150/00FF00/FFFFFF?text=Peter+Jones',
+            interests=['Agile Methodologies', 'Project Management', 'Hiking'],
+            bio='Enjoys leading agile teams and ensuring projects are delivered on time and within budget. A keen hiker.',
+            order=3,
+            is_published=True
+        ),
+        TeamMember(
+            name='Alice Brown',
+            role='Research Scientist',
+            image='https://via.placeholder.com/150/FFFF00/000000?text=Alice+Brown',
+            interests=['Virology', 'Research', 'Chess'],
+            bio='Dedicated to groundbreaking research in virology and enjoys playing chess.',
+            order=4,
+            is_published=True
+        ),
+        TeamMember(
+            name='Bob White',
+            role='Data Analyst',
+            image='https://via.placeholder.com/150/00FFFF/000000?text=Bob+White',
+            interests=['Data Analysis', 'Machine Learning', 'Sci-Fi Novels'],
+            bio='Fascinated by data patterns and machine learning. A big fan of sci-fi novels.',
+            order=5,
+            is_published=True
+        ),
+        TeamMember(
+            name='Charlie Green',
+            role='Lab Technician',
+            image='https://via.placeholder.com/150/FF00FF/FFFFFF?text=Charlie+Green',
+            interests=['Lab Processes', 'Gardening', 'Optimization'],
+            bio='Enjoys optimizing lab processes and has a passion for gardening.',
+            order=6,
+            is_published=True
+        ),
+    ]
+
+    for member_data in sample_team_members:
+        await db.team_members.insert_one(member_data.dict())
+        logging.info(f"Inserted team member: {member_data.name}")
+
+@app.get("/")
+async def read_root():
+    return {"message": "Welcome to the Odon Lab CMS API"}
+
+
+    result = await db.projects.delete_one({"id": project_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return {"message": "Project deleted successfully"}
+
+@api_router.patch("/projects/{project_id}/toggle-status")
+async def toggle_project_status(project_id: str):
+    project = await db.projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    new_status = not project["is_published"]
+    await db.projects.update_one(
+        {"id": project_id}, 
+        {"$set": {"is_published": new_status, "updated_at": datetime.utcnow()}}
+    )
+    
+    updated_project = await db.projects.find_one({"id": project_id})
+    return Project(**updated_project)
+
+# Team Member Routes
+@api_router.get("/team_members", response_model=List[TeamMember])
+async def get_team_members():
+    members = await db.team_members.find().sort("order", 1).to_list(1000)
+    return [TeamMember(**member) for member in members]
+
+@api_router.get("/team_members/published", response_model=List[TeamMember])
+async def get_published_team_members():
+    members = await db.team_members.find({"is_published": True}).sort("order", 1).to_list(1000)
+    return [TeamMember(**member) for member in members]
+
+@api_router.get("/team_members/{member_id}", response_model=TeamMember)
+async def get_team_member(member_id: str):
+    member = await db.team_members.find_one({"id": member_id})
+    if not member:
+        raise HTTPException(status_code=404, detail="Team member not found")
+    return TeamMember(**member)
+
+@api_router.post("/team_members", response_model=TeamMember)
+async def create_team_member(member: TeamMemberCreate, current_user: User = Depends(get_current_admin_user)):
+    member_dict = member.dict()
+    member_obj = TeamMember(**member_dict)
+    await db.team_members.insert_one(member_obj.dict())
+    return member_obj
+
+@api_router.put("/team_members/{member_id}", response_model=TeamMember)
+async def update_team_member(member_id: str, member_update: TeamMemberUpdate, current_user: User = Depends(get_current_admin_user)):
+    member = await db.team_members.find_one({"id": member_id})
+    if not member:
+        raise HTTPException(status_code=404, detail="Team member not found")
+    
+    update_data = member_update.dict(exclude_unset=True)
+    update_data["updated_at"] = datetime.utcnow()
+    
+    await db.team_members.update_one({"id": member_id}, {"$set": update_data})
+    updated_member = await db.team_members.find_one({"id": member_id})
+    return TeamMember(**updated_member)
+
+@api_router.delete("/team_members/{member_id}")
+async def delete_team_member(member_id: str, current_user: User = Depends(get_current_admin_user)):
+    result = await db.team_members.delete_one({"id": member_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Team member not found")
+    return {"message": "Team member deleted successfully"}
+
+@api_router.patch("/team_members/{member_id}/toggle-status")
+async def toggle_team_member_status(member_id: str, current_user: User = Depends(get_current_admin_user)):
+    member = await db.team_members.find_one({"id": member_id})
+    if not member:
+        raise HTTPException(status_code=404, detail="Team member not found")
+    
+    new_status = not member["is_published"]
+    await db.team_members.update_one(
+        {"id": member_id}, 
+        {"$set": {"is_published": new_status, "updated_at": datetime.utcnow()}}
+    )
+    
+    updated_member = await db.team_members.find_one({"id": member_id})
+    return TeamMember(**updated_member)
 
 # Site Settings Routes
 @api_router.get("/settings", response_model=SiteSettings)
@@ -656,6 +948,66 @@ async def init_sample_data():
     
     for project in sample_projects:
         await db.projects.insert_one(project.dict())
+
+    # Add sample team members if they don't exist
+    sample_team_members = [
+        TeamMember(
+            name='John Doe',
+            role='Lead Developer',
+            image='https://via.placeholder.com/150/0000FF/FFFFFF?text=John+Doe',
+            interests=['Web Development', 'Scalable Systems', 'New Technologies'],
+            bio='Passionate about building scalable web applications and exploring new technologies.',
+            order=1,
+            is_published=True
+        ),
+        TeamMember(
+            name='Jane Smith',
+            role='UI/UX Designer',
+            image='https://via.placeholder.com/150/FF0000/FFFFFF?text=Jane+Smith',
+            interests=['UI/UX Design', 'Photography', 'User Experience'],
+            bio='Loves creating intuitive and beautiful user interfaces, and enjoys photography in her free time.',
+            order=2,
+            is_published=True
+        ),
+        TeamMember(
+            name='Peter Jones',
+            role='Project Manager',
+            image='https://via.placeholder.com/150/00FF00/FFFFFF?text=Peter+Jones',
+            interests=['Agile Methodologies', 'Project Management', 'Hiking'],
+            bio='Enjoys leading agile teams and ensuring projects are delivered on time and within budget. A keen hiker.',
+            order=3,
+            is_published=True
+        ),
+        TeamMember(
+            name='Alice Brown',
+            role='Research Scientist',
+            image='https://via.placeholder.com/150/FFFF00/000000?text=Alice+Brown',
+            interests=['Virology', 'Research', 'Chess'],
+            bio='Dedicated to groundbreaking research in virology and enjoys playing chess.',
+            order=4,
+            is_published=True
+        ),
+        TeamMember(
+            name='Bob White',
+            role='Data Analyst',
+            image='https://via.placeholder.com/150/00FFFF/000000?text=Bob+White',
+            interests=['Data Analysis', 'Machine Learning', 'Sci-Fi Novels'],
+            bio='Fascinated by data patterns and machine learning. A big fan of sci-fi novels.',
+            order=5,
+            is_published=True
+        ),
+        TeamMember(
+            name='Charlie Green',
+            role='Lab Technician',
+            image='https://via.placeholder.com/150/FF00FF/FFFFFF?text=Charlie+Green',
+            interests=['Lab Processes', 'Gardening', 'Optimization'],
+            bio='Enjoys optimizing lab processes and has a passion for gardening.',
+            order=6,
+            is_published=True
+        ),
+    ]
+
+
 
 # Include the router in the main app
 app.include_router(api_router)
